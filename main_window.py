@@ -4,17 +4,9 @@ main window
 create: 2020/02/03 18:00
 author: zhenchao
 """
-import os
 import json
 import copy
-import pathlib
-import datetime
-from utils import title
-from utils import Config
-from utils import Thread
-from utils import logger
-from utils import config_json
-from utils import get_date_range
+from utils import *
 from PyQt5.QtCore import Qt, QDate
 from PyQt5.QtWidgets import QWidget, QPushButton, QLabel, QHBoxLayout, QVBoxLayout, QFrame, QSplitter, \
     QLineEdit, QComboBox, QTextEdit, QMessageBox, QDateTimeEdit, QDialog

@@ -5,9 +5,7 @@
 """
 import sys
 import PyQt5
-from utils import title
-from utils import Config
-from utils import logger
+from utils import *
 from main_window import MainWindow
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLabel, QHBoxLayout, QVBoxLayout, QMessageBox
 
