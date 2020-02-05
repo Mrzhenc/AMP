@@ -7,7 +7,7 @@ import sys
 import PyQt5
 from utils import Config
 from main_window import MainWindow
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLabel, QHBoxLayout, QVBoxLayout
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLabel, QHBoxLayout, QVBoxLayout, QMessageBox
 
 
 class LoginWindow(QWidget):
@@ -77,6 +77,19 @@ class LoginWindow(QWidget):
         self.__conf.set('User', name=self.__username_entry.text(), password=self.__password_entry.text())
         self.hide()
         m.run()
+
+    def closeEvent(self, event):
+        """
+        重写closeEvent方法，实现dialog窗体关闭时执行一些代码
+        :param event: close()触发的事件
+        :return: None
+        """
+        reply = QMessageBox.question(self, '本程序', "是否要退出程序？", QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            m.cancel_thread()
+            event.accept()
+        else:
+            event.ignore()
 
 
 if __name__ == "__main__":
