@@ -11,6 +11,7 @@ import pathlib
 import datetime
 from utils import Config
 from utils import Thread
+from utils import logger
 from utils import config_json
 from utils import get_date_range
 from PyQt5.QtCore import Qt, QDate
@@ -222,7 +223,7 @@ class MainWindow(QWidget):
             try:
                 return json.load(fp)
             except json.decoder.JSONDecodeError as e:
-                print(f'load {json_file} Error:{e}')
+                logger.debug(f'load {json_file} Error:{e}')
                 return copy.deepcopy(config_json)
 
     def dump_json_file(self, json_data, total=False):
@@ -291,7 +292,7 @@ class MainWindow(QWidget):
                     js_data = json.load(fp)
                     self.deal_with_json_data(res, js_data)
             except FileNotFoundError:
-                print(f'file {date} not fond')
+                logger.debug(f'file {date} not fond')
 
         self.show_search_result(res)
 

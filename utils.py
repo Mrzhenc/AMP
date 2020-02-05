@@ -2,10 +2,20 @@
 import os
 import time
 import pathlib
-import sqlite3
-import threading
+import logging
 import datetime
+import threading
 import configparser
+
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+log_path = os.path.join(pathlib.Path('.').absolute(), 'log.txt')
+handler = logging.FileHandler(log_path)
+handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(filename)s - %(funcName)s[%(lineno)d]:%(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 config_json = {
     "IN": {
@@ -49,7 +59,7 @@ class Config(object):
         try:
             return self.__conf[section][option]
         except KeyError:
-            print(f'No section:{section} or option:{option} get')
+            logger.debug(f'No section:{section} or option:{option} get')
             return ''
 
 
