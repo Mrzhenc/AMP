@@ -9,6 +9,7 @@ import json
 import copy
 import pathlib
 import datetime
+from utils import title
 from utils import Config
 from utils import Thread
 from utils import logger
@@ -56,7 +57,7 @@ class MainWindow(QWidget):
 
     def init_ui(self):
         self.resize(800, 600)
-        self.setWindowTitle('AMP')
+        self.setWindowTitle(title)
 
         # top left widget
         v_box = QVBoxLayout(self)
@@ -378,7 +379,7 @@ class MainWindow(QWidget):
         :param event: close()触发的事件
         :return: None
         """
-        reply = QMessageBox.question(self, '本程序', "是否要退出程序？", QMessageBox.Yes | QMessageBox.No)
+        reply = QMessageBox.question(self, title, "是否要退出程序？", QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
             if self.__thread:
                 self.__thread.cancel()

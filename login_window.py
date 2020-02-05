@@ -5,6 +5,7 @@
 """
 import sys
 import PyQt5
+from utils import title
 from utils import Config
 from utils import logger
 from main_window import MainWindow
@@ -22,7 +23,7 @@ class LoginWindow(QWidget):
 
     def init_ui(self):
         self.resize(400, 260)
-        self.setWindowTitle('AMP')
+        self.setWindowTitle(title)
 
         ok_btn = QPushButton('登录', self)
         # ok_btn.setEnabled(True)
@@ -72,10 +73,18 @@ class LoginWindow(QWidget):
         self.show()
 
     def login_cb(self):
+        user_name = self.__username_entry.text()
+        password = self.__password_entry.text()
+        if user_name != "admin":
+            self.__tips_label.setText('账户为admin')
+            return
         if not self.__password_entry.text():
             self.__tips_label.setText('密码不能为空')
             return
-        self.__conf.set('User', name=self.__username_entry.text(), password=self.__password_entry.text())
+        if password != "123456":
+            self.__tips_label.setText('密码错误')
+            return
+        self.__conf.set('User', name=user_name, password=password)
         self.hide()
         m.run()
 
@@ -85,7 +94,7 @@ class LoginWindow(QWidget):
         :param event: close()触发的事件
         :return: None
         """
-        reply = QMessageBox.question(self, '本程序', "是否要退出程序？", QMessageBox.Yes | QMessageBox.No)
+        reply = QMessageBox.question(self, title, "是否要退出程序？", QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
             m.cancel_thread()
             event.accept()

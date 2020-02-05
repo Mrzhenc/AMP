@@ -17,6 +17,8 @@ formatter = logging.Formatter('%(asctime)s - %(filename)s - %(funcName)s[%(linen
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
+title = '仓库货物管理系统'
+
 config_json = {
     "IN": {
 
