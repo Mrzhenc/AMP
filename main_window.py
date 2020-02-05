@@ -6,11 +6,13 @@ author: zhenchao
 """
 import os
 import json
+import copy
 import pathlib
 import datetime
 from utils import Config
 from utils import Thread
 from utils import config_json
+from utils import get_date_range
 from PyQt5.QtCore import Qt, QDate
 from PyQt5.QtWidgets import QWidget, QPushButton, QLabel, QHBoxLayout, QVBoxLayout, QFrame, QSplitter, \
     QLineEdit, QComboBox, QTextEdit, QMessageBox, QDateTimeEdit, QDialog
@@ -19,7 +21,7 @@ from PyQt5.QtWidgets import QWidget, QPushButton, QLabel, QHBoxLayout, QVBoxLayo
 class MainWindow(QWidget):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
-        self.__type = ['--新增--']
+        self.__type = []
         self.__username_entry = None
         self.__password_entry = None
         self.__text_edit_label = None
@@ -37,7 +39,19 @@ class MainWindow(QWidget):
         self.__last_num = 0
         self.__last_method = ''
         self.__total_text_edit = None
+        self.get_conf_list()
         self.init_ui()
+
+    def get_conf_list(self):
+        _typos_str = self.__conf.get('List', 'typo')
+        if _typos_str == '':
+            self.__type.extend(['--新增--'])
+            return
+        _typos_list = _typos_str.split(':')
+        self.__type.extend(_typos_list)
+
+    def set_conf_list(self):
+        self.__conf.set('List', typo=':'.join(self.__type))
 
     def init_ui(self):
         self.resize(800, 600)
@@ -154,11 +168,9 @@ class MainWindow(QWidget):
         # bottom widget
         v_box = QVBoxLayout(self)
         self.__text_edit_label = QTextEdit(self)
-        # self.__text_edit_label.setEnabled(False)
-        self.__text_edit_label.setFontPointSize(20)
+        self.__text_edit_label.setFontPointSize(15)
         v_box.addWidget(self.__text_edit_label)
         bottom = QFrame(self)
-        # bottom.resize(300, 200)
         bottom.setFrameShape(QFrame.StyledPanel)
         bottom.setLayout(v_box)
 
@@ -205,13 +217,13 @@ class MainWindow(QWidget):
             json_file = os.path.join(datebase_dir, now)
         if not os.path.exists(json_file):
             with open(json_file, 'w+', encoding='gbk'):
-                return config_json
+                return copy.deepcopy(config_json)
         with open(json_file, 'r', encoding='gbk') as fp:
             try:
                 return json.load(fp)
             except json.decoder.JSONDecodeError as e:
                 print(f'load {json_file} Error:{e}')
-                return config_json
+                return copy.deepcopy(config_json)
 
     def dump_json_file(self, json_data, total=False):
         now = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -223,7 +235,7 @@ class MainWindow(QWidget):
         with open(json_file, 'w+', encoding='gbk') as fp:
             json.dump(json_data, fp)
 
-    def fill_data(self, method, typo, num, json_data, total=False):
+    def fill_data(self, method, typo, num, json_data):
         if method == "进货":
             method = 'IN'
         elif method == "出货":
@@ -260,6 +272,40 @@ class MainWindow(QWidget):
         json_data['IN'][typo] = str(new_num)
         self.dump_json_file(json_data, total=True)
         self.update_total_data()
+
+    def deal_with_json_data(self, res, js_data):
+        for key in js_data.keys():
+            for typo in js_data[key]:
+                if typo in res[key]:
+                    res[key][typo] = str(int(js_data[key][typo]) + int(res[key][typo]))
+                else:
+                    res[key][typo] = js_data[key][typo]
+
+    def search(self, start, end):
+        dates = get_date_range(start, end)
+        res = copy.deepcopy(config_json)
+        datebase_dir = os.path.join(pathlib.Path('.').absolute(), 'datebase')
+        for date in dates:
+            try:
+                with open(os.path.join(datebase_dir, date)) as fp:
+                    js_data = json.load(fp)
+                    self.deal_with_json_data(res, js_data)
+            except FileNotFoundError:
+                print(f'file {date} not fond')
+
+        self.show_search_result(res)
+
+    def show_search_result(self, res):
+        for typo in res['IN']:
+            _in = res['IN'][typo]
+            try:
+                _out = res['OUT'][typo]
+            except KeyError:
+                _out = '0'
+            _template = f'{typo}：进货量{_in} 出货量{_out}'
+            self.__cache_list.append(_template)
+
+        self.__text_edit_label.setText('\n'.join(self.__cache_list))
 
     def _check_num(self, num):
         try:
@@ -300,6 +346,7 @@ class MainWindow(QWidget):
             #     return
             self.__type.insert(-1, new_type)
             self.__type = list({}.fromkeys(self.__type).keys())
+            self.set_conf_list()
             self.__combobox.clear()
             self.__combobox.addItems(self.__type)
             self.__combobox.setCurrentText(new_type)
@@ -311,8 +358,9 @@ class MainWindow(QWidget):
             start_date = self.__start_calendar_widget.dateTime().toString(Qt.ISODate).split('T')[0]
             end_date = self.__end_calendar_widget.dateTime().toString(Qt.ISODate).split('T')[0]
 
-            self.__text_edit_label.clear()
-            self.__text_edit_label.setPlainText(f'{start_date}至{end_date}材料统计情况')
+            # self.__text_edit_label.clear()
+            self.__cache_list.append(f'{start_date}至{end_date}材料统计情况')
+            self.search(start_date, end_date)
 
         cursor = self.__text_edit_label.textCursor()
         pos = len(self.__text_edit_label.toPlainText())

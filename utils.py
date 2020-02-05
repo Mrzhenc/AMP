@@ -74,3 +74,14 @@ class Thread(threading.Thread):
 
     def cancel(self):
         self.cancelled = not self.cancelled
+
+
+def get_date_range(start, end):
+    dates = []
+    dt = datetime.datetime.strptime(start, "%Y-%m-%d")
+    date = start[:]
+    while date <= end:
+        dates.append(date)
+        dt = dt + datetime.timedelta(1)
+        date = dt.strftime("%Y-%m-%d")
+    return dates
