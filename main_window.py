@@ -246,12 +246,11 @@ class MainWindow(QWidget):
         # current day
         new_num = old_num + int(num)
         json_data[method][typo] = str(new_num)
-        self.dump_json_file(json_data)
 
         # total
-        json_data = self.load_json_file(total=True)
+        total_json_data = self.load_json_file(total=True)
         try:
-            old_num = int(json_data['IN'][typo])
+            old_num = int(total_json_data['IN'][typo])
         except KeyError:
             old_num = 0
         except ValueError:
@@ -259,12 +258,16 @@ class MainWindow(QWidget):
         if method == 'OUT':
             new_num = old_num - int(num)
             if new_num < 0:
-                self.show_warning_dialog(f'当前操作导致{typo}物料数量小于0')
+                self.__cache_list.pop()
+                # self.__cache_list[len(self.__cache_list)-1] = f'【出货失败,库存不足】:{typo}:{num}'
+                self.__text_edit_label.setPlainText('\n'.join(self.__cache_list))
+                self.show_warning_dialog(f'{typo}出货失败:库存不足')
                 return
         else:
             new_num = old_num + int(num)
-        json_data['IN'][typo] = str(new_num)
-        self.dump_json_file(json_data, total=True)
+        total_json_data['IN'][typo] = str(new_num)
+        self.dump_json_file(total_json_data, total=True)
+        self.dump_json_file(json_data)
         self.update_total_data()
 
     def deal_with_json_data(self, res, js_data):
@@ -286,6 +289,8 @@ class MainWindow(QWidget):
                     self.deal_with_json_data(res, js_data)
             except FileNotFoundError:
                 logger.debug(f'file {date} not fond')
+            except json.decoder.JSONDecodeError as e:
+                logger.debug(f'JSONDecodeError {e}')
 
         self.show_search_result(res)
 
@@ -323,6 +328,7 @@ class MainWindow(QWidget):
             self.__cache_list.append(f'【{method}】:{typo}:{num}')
             self.__text_edit_label.setPlainText('\n'.join(self.__cache_list))
             self.fill_data(method, typo, num, json_data)
+            self.__num_edit.clear()
         elif text == "cancel":
             if self.__last_num == '0':
                 return
@@ -338,6 +344,9 @@ class MainWindow(QWidget):
             # num = self.__new_num_add.text()
             # if not self._check_num(num):
             #     return
+            if new_type in self.__type:
+                self.show_warning_dialog(f'物料{new_type}已存在!')
+                return
             self.__type.insert(-1, new_type)
             self.__type = list({}.fromkeys(self.__type).keys())
             self.set_conf_list()
@@ -347,13 +356,14 @@ class MainWindow(QWidget):
             # self.__last_num = int(num)
             self.__cache_list.append(f'【新增】:{new_type}')
             self.__text_edit_label.setText('\n'.join(self.__cache_list))
+            self.__new_type_edit.clear()
             # self.fill_data('进货', new_type, num, json_data)
         elif text == "search":
             start_date = self.__start_calendar_widget.dateTime().toString(Qt.ISODate).split('T')[0]
             end_date = self.__end_calendar_widget.dateTime().toString(Qt.ISODate).split('T')[0]
 
             # self.__text_edit_label.clear()
-            self.__cache_list.append(f'{start_date}至{end_date}材料统计情况')
+            self.__cache_list.append(f'======{start_date}至{end_date}材料统计情况======')
             self.search(start_date, end_date)
 
         cursor = self.__text_edit_label.textCursor()
