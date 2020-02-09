@@ -1,7 +1,12 @@
 # -*- encoding=utf-8 -*-
 
 """
-
+filename:login_window.py
+func: Provide a login function
+password and username is fixed.
+admin:123456
+author: zhenc
+date: 2020/02/09
 """
 import sys
 import PyQt5

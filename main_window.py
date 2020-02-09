@@ -24,6 +24,8 @@ class MainWindow(QWidget):
         self.__combobox = None
         self.__thread = None
         self.__new_type_edit = None
+        self.__to_edit = None
+        self.__to_label = None
         self.__new_num_add = None
         self.__start_calendar_widget = None
         self.__end_calendar_widget = None
@@ -35,6 +37,7 @@ class MainWindow(QWidget):
         self.__total_text_edit = None
         self.get_conf_list()
         self.init_ui()
+        self.change_to_widget_status()
 
     def get_conf_list(self):
         _typos_str = self.__conf.get('List', 'typo')
@@ -64,9 +67,12 @@ class MainWindow(QWidget):
         type_label = QLabel('材料')
         num_label = QLabel('数量')
         method_label = QLabel('类型')
+        self.__to_label = QLabel('去向')
         self.__method_combobox = QComboBox(self)
         self.__method_combobox.addItems(['进货', '出货'])
+        self.__method_combobox.activated.connect(self.change_to_widget_status)
         self.__num_edit = QLineEdit()
+        self.__to_edit = QLineEdit()
         self.__combobox = QComboBox(self)
         self.__combobox.addItems(self.__type)
         self.__combobox.setCurrentIndex(0)
@@ -95,6 +101,13 @@ class MainWindow(QWidget):
         h_box = QHBoxLayout(self)
         h_box.addWidget(num_label)
         h_box.addWidget(self.__num_edit)
+        h_box.addStretch(1)
+        top_left_v_box.addLayout(h_box)
+
+        # to
+        h_box = QHBoxLayout(self)
+        h_box.addWidget(self.__to_label)
+        h_box.addWidget(self.__to_edit)
         h_box.addStretch(1)
         top_left_v_box.addLayout(h_box)
         top_left_v_box.addStretch(1)
@@ -181,6 +194,14 @@ class MainWindow(QWidget):
         h_box.addWidget(v_splitter)
         self.setLayout(h_box)
         # self.setGeometry(300, 300, 300, 200)
+
+    def change_to_widget_status(self):
+        if self.__method_combobox.currentText() == '进货':
+            self.__to_label.hide()
+            self.__to_edit.hide()
+        else:
+            self.__to_label.show()
+            self.__to_edit.show()
 
     def update_total_data(self):
         json_data = self.load_json_file(total=True)
