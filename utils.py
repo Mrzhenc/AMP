@@ -3,21 +3,30 @@ import os
 import time
 import pathlib
 import logging
+import sqlite3
 import datetime
 import threading
 import configparser
+from collections import namedtuple
 
 
+logger_level = logging.DEBUG
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logger_level)
 log_path = os.path.join(pathlib.Path('.').absolute(), 'log.txt')
 handler = logging.FileHandler(log_path)
-handler.setLevel(logging.DEBUG)
+handler.setLevel(logger_level)
 formatter = logging.Formatter('%(asctime)s - %(filename)s - %(funcName)s[%(lineno)d]:%(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 title = '仓库货物管理系统'
+DB_NAME = 'good.db'
+DETAIL_TB = 'goods_detail'
+WAREHOUSE_TB = 'warehouse'
+USER_TB = 'user'
+MATERIEL_TB = 'materiel'
+
 
 config_json = {
     "IN": {
@@ -33,7 +42,7 @@ class Config(object):
     _instance_lock = threading.Lock()
 
     def __init__(self):
-        self.__conf_file = pathlib.Path.joinpath(pathlib.Path('.').absolute(), 'conf.ini')
+        self.__conf_file = pathlib.Path.joinpath(pathlib.Path('.').absolute(), 'database', 'conf.ini')
         self.__conf = configparser.ConfigParser()
         if not os.path.exists(self.__conf_file):
             self.__conf['User'] = {}
@@ -65,9 +74,125 @@ class Config(object):
             return ''
 
 
-# class DataBase(sqlite3):
-#     def __init__(self):
-#         super(sqlite3, self).__init__()
+class DataBase(object):
+    _instance_lock = threading.Lock()
+
+    def __init__(self):
+        self.__db_path = os.path.join(pathlib.Path().absolute(), 'database', DB_NAME)
+        self.__conn = sqlite3.connect(self.__db_path)
+        try:
+            self.__cursor = self.__conn.cursor()
+        except Exception as e:
+            logger.debug(f'create db failed {e}')
+            self.__conn.rollback()
+            self.close()
+        self.init()
+
+    def __new__(cls, *args, **kwargs):
+        if not hasattr(DataBase, '_instance'):
+            with DataBase._instance_lock:
+                if not hasattr(DataBase, '_instance'):
+                    DataBase._instance = object.__new__(cls)
+        return DataBase._instance
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def init(self):
+        detail_tb_sentences = f"""
+            CREATE TABLE IF NOT EXISTS {DETAIL_TB} (
+                NUM INTEGER PRIMARY KEY,
+                DATE CHAR(64) NOT NULL,
+                OPERATE CHAR(8) NOT NULL,
+                NAME CHAR(128) NOT NULL,
+                QUANTITY INTEGER,
+                PICKER CHAR(128)
+            )
+        """
+        warehouse_tb_sentences = f"""
+            CREATE TABLE IF NOT EXISTS {WAREHOUSE_TB} (
+                NUM INTEGER PRIMARY KEY,
+                NAME CHAR(128) NOT NULL,
+                QUANTITY INTEGER
+            )
+        """
+        materiel_tb_sentences = f"""
+            CREATE TABLE IF NOT EXISTS {MATERIEL_TB} (
+                NUM INTEGER PRIMARY KEY,
+                NAME CHAR(128) NOT NULL
+            )
+        """
+        self.create_tb(detail_tb_sentences)
+        self.create_tb(warehouse_tb_sentences)
+        self.create_tb(materiel_tb_sentences)
+
+    def close(self):
+        self.__conn.close()
+
+    def insert_detail(self, date, name, operate, quantity, picker):
+        sentences = f"""
+            INSERT INTO {DETAIL_TB} VALUES(NULL, '{date}', '{operate}', '{name}', '{quantity}', '{picker}');
+        """
+        self.commit(sentences)
+
+    def insert_warehouse(self, name, quantity):
+        sentences = f"""
+             INSERT INTO {WAREHOUSE_TB} VALUES(NULL, '{name}', '{quantity}');
+        """
+        self.commit(sentences)
+
+    def update(self, tb_name, condition_key, condition_value, new_key, new_value):
+        sentences = f"""
+            UPDATE {tb_name} SET {new_key}='{new_value}' WHERE {condition_key}='{condition_value}';
+        """
+        self.commit(sentences)
+
+    def revert(self, tb_name):
+        sentences = f"""
+            SELECT * FROM {tb_name} order by NUM desc limit 0,1;
+        """
+        self.__cursor.execute(sentences)
+        result = self.__cursor.fetchall()
+        return result
+
+    def delete(self, tb_name, key, value):
+        sentences = f"""
+            DELETE FROM {tb_name} WHERE {key}='{value}';
+        """
+        self.commit(sentences)
+
+    def insert_materiel(self, name):
+        sentences = f"""
+             INSERT INTO {MATERIEL_TB} VALUES(NULL, '{name}');
+        """
+        self.commit(sentences)
+
+    def query(self, tb_name, **kwargs):
+        options = ["WHERE"]
+        for key in kwargs:
+            options.append(f"{key}='{kwargs[key]}'")
+            options.append('and')
+
+        options.pop()
+        sentences = f"""
+            SELECT * FROM {tb_name} {' '.join(options)};
+        """
+        self.__cursor.execute(sentences)
+        result = self.__cursor.fetchall()
+        logger.debug(f'{sentences}::query result:{result}')
+        return result
+
+    def create_tb(self, sql_sentences):
+        self.commit(sql_sentences)
+
+    def commit(self, sentences):
+        try:
+            self.__cursor.execute(sentences)
+            self.__conn.commit()
+        except Exception as e:
+            logger.error(f'execute {sentences} error:{e}')
+        finally:
+            logger.debug(f'execute sqlite sentences:{sentences}')
 
 
 class Thread(threading.Thread):

@@ -7,12 +7,17 @@ author: zhenchao
 import json
 import copy
 from utils import *
+from collections import namedtuple
 from PyQt5.QtCore import Qt, QDate
 from PyQt5.QtWidgets import QWidget, QPushButton, QLabel, QHBoxLayout, QVBoxLayout, QFrame, QSplitter, \
     QLineEdit, QComboBox, QTextEdit, QMessageBox, QDateTimeEdit, QDialog
 
 
 class MainWindow(QWidget):
+    _warehouse_template = namedtuple('Warehouse', 'num name quantity')
+    _detail_template = namedtuple('Detail', 'num date operate name quantity picker')
+    _materiel_template = namedtuple('Materiel', 'num name')
+
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
         self.__type = []
@@ -30,25 +35,35 @@ class MainWindow(QWidget):
         self.__start_calendar_widget = None
         self.__end_calendar_widget = None
         self.__conf = Config()
+        self.__db = DataBase()
         self.__cache_list = []
         self.__last_typo = ''
         self.__last_num = 0
         self.__last_method = ''
+        self.__last_op_date = ''
         self.__total_text_edit = None
         self.get_conf_list()
         self.init_ui()
         self.change_to_widget_status()
 
     def get_conf_list(self):
-        _typos_str = self.__conf.get('List', 'typo')
-        if _typos_str == '':
-            self.__type.extend(['--新增--'])
-            return
-        _typos_list = _typos_str.split(':')
-        self.__type.extend(_typos_list)
+        # database
+        _typo_list = self.__db.query(MATERIEL_TB)
+        for _typo in _typo_list:
+            self.__type.append(_typo[1])
+        self.__type.extend(['--新增--'])
 
-    def set_conf_list(self):
-        self.__conf.set('List', typo=':'.join(self.__type))
+        # conf file
+        # _typos_str = self.__conf.get('List', 'typo')
+        # if _typos_str == '':
+        #     self.__type.extend(['--新增--'])
+        #     return
+        # _typos_list = _typos_str.split(':')
+        # self.__type.extend(_typos_list)
+
+    def set_conf_list(self, new_type):
+        # self.__conf.set('List', typo=':'.join(self.__type))
+        self.__db.insert_materiel(new_type)
 
     def init_ui(self):
         self.resize(800, 600)
@@ -128,7 +143,6 @@ class MainWindow(QWidget):
         top_mid = QFrame(self)
         self.__total_text_edit = QTextEdit(self)
         self.__total_text_edit.setFontPointSize(15)
-        self.update_total_data()
         top_mid_v_box.addWidget(self.__total_text_edit)
 
         top_mid.setFrameShape(QFrame.StyledPanel)
@@ -175,7 +189,7 @@ class MainWindow(QWidget):
         # bottom widget
         v_box = QVBoxLayout(self)
         self.__text_edit_label = QTextEdit(self)
-        self.__text_edit_label.setFontPointSize(15)
+        self.__text_edit_label.setFontPointSize(12)
         v_box.addWidget(self.__text_edit_label)
         bottom = QFrame(self)
         bottom.setFrameShape(QFrame.StyledPanel)
@@ -204,10 +218,14 @@ class MainWindow(QWidget):
             self.__to_edit.show()
 
     def update_total_data(self):
-        json_data = self.load_json_file(total=True)
         _type_list = []
-        for typo in json_data['IN'].keys():
-            _type_list.append(f'{typo}:{json_data["IN"][typo]}')
+        result_list = self.__db.query(WAREHOUSE_TB)
+        if not result_list:
+            self.show_warning_dialog(f'查询失败!')
+            return
+        for result in result_list:
+            warehouse_info = MainWindow._warehouse_template._make(result)
+            _type_list.append(f'{warehouse_info.name}:{warehouse_info.quantity}')
 
         self.__total_text_edit.setText('当前仓库物料清单:\n'+'\n'.join(_type_list))
         cursor = self.__total_text_edit.textCursor()
@@ -221,75 +239,75 @@ class MainWindow(QWidget):
     def run(self):
         self.show()
 
-    def load_json_file(self, total=False):
-        now = datetime.datetime.now().strftime("%Y-%m-%d")
-        datebase_dir = os.path.join(pathlib.Path('.').absolute(), 'datebase')
-        if not os.path.exists(datebase_dir):
-            os.mkdir(datebase_dir)
-        if total:
-            json_file = os.path.join(datebase_dir, 'total')
+    def fill_data(self, method, typo, num, picker):
+
+        current_date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        self.__last_op_date = current_date
+
+        # update warehouse db
+        res = self.__db.query(WAREHOUSE_TB, NAME=typo)
+        if not res:
+            self.__db.insert_warehouse(typo, num)
         else:
-            json_file = os.path.join(datebase_dir, now)
-        if not os.path.exists(json_file):
-            with open(json_file, 'w+', encoding='gbk'):
-                return copy.deepcopy(config_json)
-        with open(json_file, 'r', encoding='gbk') as fp:
             try:
-                return json.load(fp)
-            except json.decoder.JSONDecodeError as e:
-                logger.debug(f'load {json_file} Error:{e}')
-                return copy.deepcopy(config_json)
+                old_num = int(res[0][2])
+                if method == '出货':
+                    new_num = old_num - int(num)
+                    if new_num < 0:
+                        self.show_warning_dialog(f'{typo}出货失败:库存不足')
+                        return
+                else:
+                    new_num = old_num + int(num)
+                if picker:
+                    picker = f'提货人:{picker}'
+                self.__db.update(WAREHOUSE_TB, 'NAME', typo, 'QUANTITY', new_num)
+            except IndexError as e:
+                logger.error(f'update warehouse failed:{e}')
+                self.show_warning_dialog(f'数据更新失败')
+            except ValueError as e:
+                logger.error(f'update warehouse failed:{e}')
+                self.show_warning_dialog(f'数据更新失败')
 
-    def dump_json_file(self, json_data, total=False):
-        now = datetime.datetime.now().strftime("%Y-%m-%d")
-        datebase_dir = os.path.join(pathlib.Path('.').absolute(), 'datebase')
-        if total:
-            json_file = os.path.join(datebase_dir, "total")
-        else:
-            json_file = os.path.join(datebase_dir, now)
-        with open(json_file, 'w+', encoding='gbk') as fp:
-            json.dump(json_data, fp)
+        # update detail db
+        self.__db.insert_detail(current_date, typo, method, num, picker)
 
-    def fill_data(self, method, typo, num, json_data):
-        if method == "进货":
-            method = 'IN'
-        elif method == "出货":
-            method = "OUT"
-        else:
+        self.__text_edit_label.append(f'【{method}】:{typo}*{num} {picker}')
+
+    def revert_detail_data(self):
+        res = self.__db.revert(DETAIL_TB)
+        if not res:
             return
-        try:
-            old_num = int(json_data[method][typo])
-        except KeyError:
-            old_num = 0
-        except ValueError:
-            old_num = 0
 
-        # current day
-        new_num = old_num + int(num)
-        json_data[method][typo] = str(new_num)
-
-        # total
-        total_json_data = self.load_json_file(total=True)
         try:
-            old_num = int(total_json_data['IN'][typo])
-        except KeyError:
-            old_num = 0
-        except ValueError:
-            old_num = 0
-        if method == 'OUT':
-            new_num = old_num - int(num)
-            if new_num < 0:
-                self.__cache_list.pop()
-                # self.__cache_list[len(self.__cache_list)-1] = f'【出货失败,库存不足】:{typo}:{num}'
-                self.__text_edit_label.setPlainText('\n'.join(self.__cache_list))
-                self.show_warning_dialog(f'{typo}出货失败:库存不足')
+            detail_info = MainWindow._detail_template ._make(res[0])
+            picker = detail_info.picker
+            if picker:
+                picker = f'提货人:{picker}'
+            content = f"""
+是否要撤销最后一次操作？
+【{detail_info.operate}】: {detail_info.name}*{detail_info.quantity} {picker}
+            """
+            reply = QMessageBox.question(self, title, content.strip(), QMessageBox.Yes | QMessageBox.No)
+            if reply == QMessageBox.No:
                 return
-        else:
-            new_num = old_num + int(num)
-        total_json_data['IN'][typo] = str(new_num)
-        self.dump_json_file(total_json_data, total=True)
-        self.dump_json_file(json_data)
-        self.update_total_data()
+            res = self.__db.query(WAREHOUSE_TB, NAME=detail_info.name)
+            warehouse_info = MainWindow._warehouse_template._make(res[0])
+            current_quantity = int(warehouse_info.quantity)
+            revert_quantity = int(detail_info.quantity)
+            if detail_info.operate == '出货':
+                new_quantity = current_quantity + revert_quantity
+            else:
+                new_quantity = current_quantity - revert_quantity
+
+            self.__db.update(WAREHOUSE_TB, 'NAME', detail_info.name, 'QUANTITY', new_quantity)
+            self.__db.delete(DETAIL_TB, 'NUM', detail_info.num)
+            self.__text_edit_label.append('---------撤销详情---------')
+            self.__text_edit_label.append(f'【{detail_info.operate}】: '
+                                          f'{detail_info.name}*{detail_info.quantity} {picker}')
+
+        except Exception as e:
+            logger.error(f'revert detail failed:{e}')
+            return
 
     def deal_with_json_data(self, res, js_data):
         for key in js_data.keys():
@@ -302,10 +320,10 @@ class MainWindow(QWidget):
     def search(self, start, end):
         dates = get_date_range(start, end)
         res = copy.deepcopy(config_json)
-        datebase_dir = os.path.join(pathlib.Path('.').absolute(), 'datebase')
+        database_dir = os.path.join(pathlib.Path('.').absolute(), 'database')
         for date in dates:
             try:
-                with open(os.path.join(datebase_dir, date)) as fp:
+                with open(os.path.join(database_dir, date)) as fp:
                     js_data = json.load(fp)
                     self.deal_with_json_data(res, js_data)
             except FileNotFoundError:
@@ -316,6 +334,7 @@ class MainWindow(QWidget):
         self.show_search_result(res)
 
     def show_search_result(self, res):
+        _cache_list = []
         for typo in res['IN']:
             _in = res['IN'][typo]
             try:
@@ -323,9 +342,9 @@ class MainWindow(QWidget):
             except KeyError:
                 _out = '0'
             _template = f'{typo}：进货量{_in} 出货量{_out}'
-            self.__cache_list.append(_template)
+            _cache_list.append(_template)
 
-        self.__text_edit_label.setText('\n'.join(self.__cache_list))
+        self.__text_edit_label.append('\n'.join(_cache_list))
 
     def _check_num(self, num):
         try:
@@ -336,49 +355,44 @@ class MainWindow(QWidget):
         return True
 
     def btn_cb(self, text):
-        json_data = self.load_json_file()
         if text == "ok":
             typo = self.__combobox.currentText()
             method = self.__method_combobox.currentText()
             num = self.__num_edit.text()
+            picker = self.__to_edit.text()
             if not self._check_num(num):
                 return
-            self.__last_typo = typo
-            self.__last_method = method
-            self.__last_num = int(num)
-            self.__cache_list.append(f'【{method}】:{typo}:{num}')
-            self.__text_edit_label.setPlainText('\n'.join(self.__cache_list))
-            self.fill_data(method, typo, num, json_data)
-            self.__num_edit.clear()
-        elif text == "cancel":
-            if self.__last_num == '0':
-                return
-            self.__cache_list.append(f'【消除】:{self.__last_typo}:{self.__last_num}')
-            self.__text_edit_label.setText('\n'.join(self.__cache_list))
-            self.fill_data(self.__last_method, self.__last_typo, str(0-int(self.__last_num)), json_data)
 
-            self.__last_num = '0'
-            self.__last_typo = self.__last_method = ''
+            if method == '出货' and self.__to_edit.text() == '':
+                self.show_warning_dialog('提货人不能为空')
+                return
+
+            self.fill_data(method, typo, num, picker)
+            self.update_total_data()
+            self.__num_edit.clear()
+            self.__to_edit.clear()
+        elif text == "cancel":
+            self.revert_detail_data()
+            self.update_total_data()
 
         elif text == "add":
             new_type = self.__new_type_edit.text()
-            # num = self.__new_num_add.text()
-            # if not self._check_num(num):
-            #     return
             if new_type in self.__type:
                 self.show_warning_dialog(f'物料{new_type}已存在!')
                 return
+
+            if new_type == '':
+                self.show_warning_dialog(f'物料不能为空!')
+                return
+
             self.__type.insert(-1, new_type)
             self.__type = list({}.fromkeys(self.__type).keys())
-            self.set_conf_list()
             self.__combobox.clear()
             self.__combobox.addItems(self.__type)
             self.__combobox.setCurrentText(new_type)
-            # self.__last_num = int(num)
-            self.__cache_list.append(f'【新增】:{new_type}')
-            self.__text_edit_label.setText('\n'.join(self.__cache_list))
+            self.__text_edit_label.append(f'【新增】:{new_type}')
             self.__new_type_edit.clear()
-            # self.fill_data('进货', new_type, num, json_data)
+            self.set_conf_list(new_type)
         elif text == "search":
             start_date = self.__start_calendar_widget.dateTime().toString(Qt.ISODate).split('T')[0]
             end_date = self.__end_calendar_widget.dateTime().toString(Qt.ISODate).split('T')[0]
@@ -406,6 +420,8 @@ class MainWindow(QWidget):
         if reply == QMessageBox.Yes:
             if self.__thread:
                 self.__thread.cancel()
+            if self.__db:
+                self.__db.close()
             event.accept()
 
         else:
