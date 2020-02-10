@@ -413,6 +413,10 @@ class MainWindow(QWidget):
         if self.__thread:
             self.__thread.cancel()
 
+    def close_db(self):
+        if self.__db:
+            self.__db.close()
+
     def closeEvent(self, event):
         """
         重写closeEvent方法，实现dialog窗体关闭时执行一些代码

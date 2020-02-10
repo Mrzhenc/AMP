@@ -100,6 +100,7 @@ class LoginWindow(QWidget):
         reply = QMessageBox.question(self, title, "是否要退出程序？", QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
             m.cancel_thread()
+            m.close_db()
             event.accept()
         else:
             event.ignore()
