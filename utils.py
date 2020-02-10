@@ -26,6 +26,9 @@ DETAIL_TB = 'goods_detail'
 WAREHOUSE_TB = 'warehouse'
 USER_TB = 'user'
 MATERIEL_TB = 'materiel'
+database_dir = pathlib.Path.joinpath(pathlib.Path('.').absolute(), 'database')
+if not os.path.exists(database_dir):
+    os.mkdir(database_dir)
 
 
 config_json = {
