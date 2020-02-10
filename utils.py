@@ -222,3 +222,18 @@ def get_date_range(start, end):
         dt = dt + datetime.timedelta(1)
         date = dt.strftime("%Y-%m-%d")
     return dates
+
+
+db = DataBase()
+# db.insert_materiel('茄子')
+# db.insert_materiel('辣子')
+# db.query(MATERIEL_TB)
+db.revert(DETAIL_TB)
+db.close()
+
+# def a(**kwargs):
+#     for args in kwargs:
+#         print(args, kwargs[args])
+#
+# a(a=1, b='2', c=['1'])
+# print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))

@@ -44,6 +44,7 @@ class MainWindow(QWidget):
         self.__total_text_edit = None
         self.get_conf_list()
         self.init_ui()
+        self.update_total_data()
         self.change_to_widget_status()
 
     def get_conf_list(self):
@@ -76,7 +77,8 @@ class MainWindow(QWidget):
         self.__thread = Thread(time_label)
         self.__thread.start()
         ok_btn = QPushButton('确定')
-        cancel_btn = QPushButton('消除')
+        cancel_btn = QPushButton('撤销')
+        cancel_btn.setToolTip('撤销最后一次操作')
         ok_btn.clicked.connect(lambda: self.btn_cb('ok'))
         cancel_btn.clicked.connect(lambda: self.btn_cb('cancel'))
         type_label = QLabel('材料')
@@ -142,7 +144,8 @@ class MainWindow(QWidget):
         top_mid_v_box = QVBoxLayout(self)
         top_mid = QFrame(self)
         self.__total_text_edit = QTextEdit(self)
-        self.__total_text_edit.setFontPointSize(15)
+        self.__total_text_edit.setReadOnly(True)
+        self.__total_text_edit.setFontPointSize(13)
         top_mid_v_box.addWidget(self.__total_text_edit)
 
         top_mid.setFrameShape(QFrame.StyledPanel)
@@ -189,6 +192,7 @@ class MainWindow(QWidget):
         # bottom widget
         v_box = QVBoxLayout(self)
         self.__text_edit_label = QTextEdit(self)
+        self.__text_edit_label.setReadOnly(True)
         self.__text_edit_label.setFontPointSize(12)
         v_box.addWidget(self.__text_edit_label)
         bottom = QFrame(self)
@@ -221,7 +225,8 @@ class MainWindow(QWidget):
         _type_list = []
         result_list = self.__db.query(WAREHOUSE_TB)
         if not result_list:
-            self.show_warning_dialog(f'查询失败!')
+            # self.show_warning_dialog(f'查询失败!')
+            logger.error(f'current warehouse is empty')
             return
         for result in result_list:
             warehouse_info = MainWindow._warehouse_template._make(result)
@@ -243,6 +248,9 @@ class MainWindow(QWidget):
 
         current_date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         self.__last_op_date = current_date
+        picker_str = ''
+        if picker:
+            picker_str = f'提货人:{picker}'
 
         # update warehouse db
         res = self.__db.query(WAREHOUSE_TB, NAME=typo)
@@ -258,20 +266,15 @@ class MainWindow(QWidget):
                         return
                 else:
                     new_num = old_num + int(num)
-                if picker:
-                    picker = f'提货人:{picker}'
                 self.__db.update(WAREHOUSE_TB, 'NAME', typo, 'QUANTITY', new_num)
-            except IndexError as e:
-                logger.error(f'update warehouse failed:{e}')
-                self.show_warning_dialog(f'数据更新失败')
-            except ValueError as e:
+            except Exception as e:
                 logger.error(f'update warehouse failed:{e}')
                 self.show_warning_dialog(f'数据更新失败')
 
         # update detail db
         self.__db.insert_detail(current_date, typo, method, num, picker)
 
-        self.__text_edit_label.append(f'【{method}】:{typo}*{num} {picker}')
+        self.__text_edit_label.append(f'【{method}】:{typo}*{num} {picker_str}')
 
     def revert_detail_data(self):
         res = self.__db.revert(DETAIL_TB)

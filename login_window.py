@@ -86,7 +86,7 @@ class LoginWindow(QWidget):
             return
         if password != "123456":
             self.__tips_label.setText('密码错误')
-            return
+            # return
         self.__conf.set('User', name=user_name, password=password)
         self.hide()
         m.run()
