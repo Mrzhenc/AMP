@@ -167,16 +167,23 @@ class DataBase(object):
         """
         self.commit(sentences)
 
-    def query(self, tb_name, **kwargs):
-        options = ["WHERE"]
-        for key in kwargs:
-            options.append(f"{key}='{kwargs[key]}'")
-            options.append('and')
+    def query(self, tb_name, vague=False, **kwargs):
+        if not vague:
+            options = ["WHERE"]
+            for key in kwargs:
+                options.append(f"{key}='{kwargs[key]}'")
+                options.append('and')
 
-        options.pop()
-        sentences = f"""
-            SELECT * FROM {tb_name} {' '.join(options)};
-        """
+            options.pop()
+            sentences = f"""
+                SELECT * FROM {tb_name} {' '.join(options)};
+            """
+        else:
+            key = list(kwargs.keys()).pop()
+            value = list(kwargs.values()).pop()
+            sentences = f"""
+                SELECT * FROM {tb_name} WHERE {key} LIKE '%{value}%';
+            """
         self.__cursor.execute(sentences)
         result = self.__cursor.fetchall()
         logger.debug(f'{sentences}::query result:{result}')

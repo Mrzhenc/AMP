@@ -312,42 +312,26 @@ class MainWindow(QWidget):
             logger.error(f'revert detail failed:{e}')
             return
 
-    def deal_with_json_data(self, res, js_data):
-        for key in js_data.keys():
-            for typo in js_data[key]:
-                if typo in res[key]:
-                    res[key][typo] = str(int(js_data[key][typo]) + int(res[key][typo]))
-                else:
-                    res[key][typo] = js_data[key][typo]
-
     def search(self, start, end):
         dates = get_date_range(start, end)
-        res = copy.deepcopy(config_json)
-        database_dir = os.path.join(pathlib.Path('.').absolute(), 'database')
+        detail_info_list = []
         for date in dates:
             try:
-                with open(os.path.join(database_dir, date)) as fp:
-                    js_data = json.load(fp)
-                    self.deal_with_json_data(res, js_data)
-            except FileNotFoundError:
-                logger.debug(f'file {date} not fond')
-            except json.decoder.JSONDecodeError as e:
-                logger.debug(f'JSONDecodeError {e}')
+                result_list = self.__db.query(DETAIL_TB, vague=True, DATE=date)
+                for result in result_list:
+                    detail_info = MainWindow._detail_template._make(result)
+                    detail_info_list.append(detail_info)
+            except Exception as e:
+                logger.debug(f'search failed:{e}')
+                return
 
-        self.show_search_result(res)
+        self.__text_edit_label.append(f'======={start}至{end}=======')
+        self.show_search_result(detail_info_list)
 
-    def show_search_result(self, res):
-        _cache_list = []
-        for typo in res['IN']:
-            _in = res['IN'][typo]
-            try:
-                _out = res['OUT'][typo]
-            except KeyError:
-                _out = '0'
-            _template = f'{typo}：进货量{_in} 出货量{_out}'
-            _cache_list.append(_template)
-
-        self.__text_edit_label.append('\n'.join(_cache_list))
+    def show_search_result(self, detail_info_list):
+        for detail in detail_info_list:
+            content = f"{detail.date} {detail.operate} {detail.name}*{detail.quantity} {detail.picker}"
+            self.__text_edit_label.append(content)
 
     def _check_num(self, num):
         try:
