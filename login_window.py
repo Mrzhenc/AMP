@@ -13,6 +13,7 @@ import PyQt5
 from utils import *
 from main_window import MainWindow
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLabel, QHBoxLayout, QVBoxLayout, QMessageBox
+from PyQt5.QtCore import Qt
 
 
 class LoginWindow(QWidget):
@@ -22,6 +23,7 @@ class LoginWindow(QWidget):
         self.__password_entry = None
         self.__tips_label = None
         self.__conf = Config()
+        self.__db = DataBase()
         self.init_ui()
 
     def init_ui(self):
@@ -29,7 +31,6 @@ class LoginWindow(QWidget):
         self.setWindowTitle(title)
 
         ok_btn = QPushButton('登录', self)
-        # ok_btn.setEnabled(True)
         ok_btn.clicked.connect(self.login_cb)
         ok_btn.resize(20, 20)
 
@@ -38,17 +39,17 @@ class LoginWindow(QWidget):
         tips_hbox = QHBoxLayout()
         self.__tips_label = QLabel()
         tips_hbox.addStretch(1)
-        tips_hbox.addWidget(self.__tips_label)
+        tips_hbox.addWidget(self.__tips_label, alignment=Qt.AlignCenter)
         tips_hbox.addStretch(1)
 
         user_hbox = QHBoxLayout()
         user_hbox.addStretch(1)
         user_label = QLabel('用户名')
-        user_hbox.addWidget(user_label)
+        user_hbox.addWidget(user_label, alignment=Qt.AlignCenter)
         user_name = self.__conf.get('User', 'name')
         self.__username_entry = PyQt5.QtWidgets.QLineEdit()
         self.__username_entry.setText(user_name)
-        user_hbox.addWidget(self.__username_entry)
+        user_hbox.addWidget(self.__username_entry, alignment=Qt.AlignCenter)
         user_hbox.addStretch(1)
 
         label_hbox = QHBoxLayout()
@@ -100,7 +101,7 @@ class LoginWindow(QWidget):
         reply = QMessageBox.question(self, title, "是否要退出程序？", QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
             m.cancel_thread()
-            m.close_db()
+            self.__db.close()
             event.accept()
         else:
             event.ignore()

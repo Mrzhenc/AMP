@@ -4,10 +4,11 @@ import time
 import pathlib
 import logging
 import sqlite3
+import win32api
+import win32con
 import datetime
 import threading
 import configparser
-from collections import namedtuple
 
 
 logger_level = logging.DEBUG
@@ -26,9 +27,10 @@ DETAIL_TB = 'goods_detail'
 WAREHOUSE_TB = 'warehouse'
 USER_TB = 'user'
 MATERIEL_TB = 'materiel'
-database_dir = pathlib.Path.joinpath(pathlib.Path('.').absolute(), 'database')
+database_dir = pathlib.Path.joinpath(pathlib.Path('.').absolute(), 'database').__str__()
 if not os.path.exists(database_dir):
     os.mkdir(database_dir)
+    win32api.SetFileAttributes(database_dir, win32con.FILE_ATTRIBUTE_HIDDEN)
 
 
 config_json = {
@@ -132,6 +134,21 @@ class DataBase(object):
     def close(self):
         self.__conn.close()
 
+    def insert_column(self, tb_name, column_name, data_type):
+        """
+        insert a column to tb.
+        if called, all operation related to db must be fitted.
+        :param tb_name:
+        :param column_name:
+        :param data_type:
+        :return:
+        """
+        sentences = f"""
+            ALTER TABLE {tb_name} ADD COLUMN {column_name} {data_type};
+        """
+        print(sentences)
+        self.commit(sentences)
+
     def insert_detail(self, date, name, operate, quantity, picker):
         sentences = f"""
             INSERT INTO {DETAIL_TB} VALUES(NULL, '{date}', '{operate}', '{name}', '{quantity}', '{picker}');
@@ -233,17 +250,3 @@ def get_date_range(start, end):
         date = dt.strftime("%Y-%m-%d")
     return dates
 
-
-db = DataBase()
-# db.insert_materiel('茄子')
-# db.insert_materiel('辣子')
-# db.query(MATERIEL_TB)
-db.revert(DETAIL_TB)
-db.close()
-
-# def a(**kwargs):
-#     for args in kwargs:
-#         print(args, kwargs[args])
-#
-# a(a=1, b='2', c=['1'])
-# print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
