@@ -1,0 +1,10 @@
+.idea/
+__pycache__/
+build/
+conf.ini
+database/
+dist/
+good.db
+log.txt
+login_window.spec
+venv/
