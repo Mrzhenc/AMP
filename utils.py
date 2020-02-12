@@ -11,7 +11,7 @@ import threading
 import configparser
 
 
-logger_level = logging.DEBUG
+logger_level = logging.ERROR
 logger = logging.getLogger(__name__)
 logger.setLevel(logger_level)
 log_path = os.path.join(pathlib.Path('.').absolute(), 'log.txt')
@@ -249,4 +249,3 @@ def get_date_range(start, end):
         dt = dt + datetime.timedelta(1)
         date = dt.strftime("%Y-%m-%d")
     return dates
-

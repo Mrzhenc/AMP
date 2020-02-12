@@ -13,4 +13,4 @@ cd %dir%
 copy ..\fav.ico .\
 copy ..\*.py .\
 
-pyinstaller -Fw login_window.py -i ../fav.ico -p E:\Python\Python38-32\Lib\site-packages\pywin32_system32
+pyinstaller -Fw login_window.py -i .\fav.ico -p E:\Python\Python38-32\Lib\site-packages\pywin32_system32

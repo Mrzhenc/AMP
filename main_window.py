@@ -4,8 +4,10 @@ main window
 create: 2020/02/03 18:00
 author: zhenchao
 """
+import sys
 import json
 import copy
+import inspect
 from utils import *
 from collections import namedtuple
 from PyQt5.QtCore import Qt, QDate
@@ -31,16 +33,10 @@ class MainWindow(QWidget):
         self.__new_type_edit = None
         self.__to_edit = None
         self.__to_label = None
-        self.__new_num_add = None
         self.__start_calendar_widget = None
         self.__end_calendar_widget = None
         self.__conf = Config()
         self.__db = DataBase()
-        self.__cache_list = []
-        self.__last_typo = ''
-        self.__last_num = 0
-        self.__last_method = ''
-        self.__last_op_date = ''
         self.__total_text_edit = None
         self.get_conf_list()
         self.init_ui()
@@ -48,23 +44,10 @@ class MainWindow(QWidget):
         self.change_to_widget_status()
 
     def get_conf_list(self):
-        # database
         _typo_list = self.__db.query(MATERIEL_TB)
         for _typo in _typo_list:
             self.__type.append(_typo[1])
-        self.__type.extend(['--新增--'])
-
-        # conf file
-        # _typos_str = self.__conf.get('List', 'typo')
-        # if _typos_str == '':
-        #     self.__type.extend(['--新增--'])
-        #     return
-        # _typos_list = _typos_str.split(':')
-        # self.__type.extend(_typos_list)
-
-    def set_conf_list(self, new_type):
-        # self.__conf.set('List', typo=':'.join(self.__type))
-        self.__db.insert_materiel(new_type)
+        self.__type.append('--新增--')
 
     def init_ui(self):
         self.resize(800, 600)
@@ -94,7 +77,6 @@ class MainWindow(QWidget):
         self.__combobox.addItems(self.__type)
         self.__combobox.setCurrentIndex(0)
         self.__combobox.activated.connect(self.show_dialog)
-        # self.__combobox.highlighted.connect(self.show_dialog)
 
         top_left_v_box = QVBoxLayout()
         # time
@@ -154,8 +136,10 @@ class MainWindow(QWidget):
         # top right widget
         top_right = QFrame(self)
         _label = QLabel('月度统计')
-        search_btn = QPushButton('开始统计')
+        search_btn = QPushButton('统计')
         search_btn.clicked.connect(lambda: self.btn_cb('search'))
+        detail_btn = QPushButton('详情')
+        detail_btn.clicked.connect(lambda: self.btn_cb('detail'))
         self.__start_calendar_widget = QDateTimeEdit(QDate.currentDate(), self)
         self.__start_calendar_widget.setCalendarPopup(True)
         self.__start_calendar_widget.setDisplayFormat("yyyy-MM-dd")
@@ -183,6 +167,7 @@ class MainWindow(QWidget):
 
         h_box = QHBoxLayout(self)
         h_box.addStretch(1)
+        h_box.addWidget(detail_btn)
         h_box.addWidget(search_btn)
         v_box.addLayout(h_box)
 
@@ -211,7 +196,6 @@ class MainWindow(QWidget):
         h_box = QHBoxLayout(self)
         h_box.addWidget(v_splitter)
         self.setLayout(h_box)
-        # self.setGeometry(300, 300, 300, 200)
 
     def change_to_widget_status(self):
         if self.__method_combobox.currentText() == '进货':
@@ -238,16 +222,12 @@ class MainWindow(QWidget):
         cursor.setPosition(pos-1)
         self.__total_text_edit.setTextCursor(cursor)
 
-    def init_total_data(self):
-        pass
-
     def run(self):
         self.show()
 
     def fill_data(self, method, typo, num, picker):
 
         current_date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        self.__last_op_date = current_date
         picker_str = ''
         if picker:
             picker_str = f'提货人:{picker}'
@@ -312,7 +292,7 @@ class MainWindow(QWidget):
             logger.error(f'revert detail failed:{e}')
             return
 
-    def search(self, start, end):
+    def search(self, start, end, detail=False):
         dates = get_date_range(start, end)
         detail_info_list = []
         for date in dates:
@@ -326,12 +306,35 @@ class MainWindow(QWidget):
                 return
 
         self.__text_edit_label.append(f'======={start}至{end}=======')
-        self.show_search_result(detail_info_list)
+        self.show_search_result(detail_info_list, detail=detail)
 
-    def show_search_result(self, detail_info_list):
-        for detail in detail_info_list:
-            content = f"{detail.date} {detail.operate} {detail.name}*{detail.quantity} {detail.picker}"
-            self.__text_edit_label.append(content)
+    def show_search_result(self, detail_info_list, detail=False):
+        if detail:
+            for detail in detail_info_list:
+                content = f"{detail.date} {detail.operate} {detail.name}*{detail.quantity} {detail.picker}"
+                self.__text_edit_label.append(content)
+        else:
+            _materiel = {}
+            for detail in detail_info_list:
+                if detail.name not in _materiel.keys():
+                    _materiel[detail.name] = {
+                        detail.operate: detail.quantity,
+                    }
+                else:
+                    if detail.operate not in _materiel[detail.name].keys():
+                        _materiel[detail.name][detail.operate] = detail.quantity
+                    else:
+                        _quantity = int(detail.quantity) + int(_materiel[detail.name][detail.operate])
+                        _materiel[detail.name][detail.operate] = str(_quantity)
+
+            for _name in _materiel:
+                _content = ''
+                try:
+                    for _op in _materiel[_name]:
+                        _content += f': {_op}*{_materiel[_name][_op]}'
+                    self.__text_edit_label.append(f'{_name}{_content}')
+                except Exception as e:
+                    logger.error(f'Error in {inspect.stack()[1][3]}:{e}')
 
     def _check_num(self, num):
         try:
@@ -379,15 +382,15 @@ class MainWindow(QWidget):
             self.__combobox.setCurrentText(new_type)
             self.__text_edit_label.append(f'【新增】:{new_type}')
             self.__new_type_edit.clear()
-            self.set_conf_list(new_type)
+            self.__db.insert_materiel(new_type)
+        elif text == "detail":
+            start_date = self.__start_calendar_widget.dateTime().toString(Qt.ISODate).split('T')[0]
+            end_date = self.__end_calendar_widget.dateTime().toString(Qt.ISODate).split('T')[0]
+            self.search(start_date, end_date, detail=True)
         elif text == "search":
             start_date = self.__start_calendar_widget.dateTime().toString(Qt.ISODate).split('T')[0]
             end_date = self.__end_calendar_widget.dateTime().toString(Qt.ISODate).split('T')[0]
-
-            # self.__text_edit_label.clear()
-            self.__cache_list.append(f'======{start_date}至{end_date}材料统计情况======')
             self.search(start_date, end_date)
-
         cursor = self.__text_edit_label.textCursor()
         pos = len(self.__text_edit_label.toPlainText())
         cursor.setPosition(pos - 1)
