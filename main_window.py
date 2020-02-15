@@ -259,7 +259,7 @@ class MainWindow(QWidget):
     def revert_detail_data(self):
         res = self.__db.revert(DETAIL_TB)
         if not res:
-            return
+            return False
 
         try:
             detail_info = MainWindow._detail_template ._make(res[0])
@@ -287,10 +287,11 @@ class MainWindow(QWidget):
             self.__text_edit_label.append('---------撤销详情---------')
             self.__text_edit_label.append(f'【{detail_info.operate}】: '
                                           f'{detail_info.name}*{detail_info.quantity} {picker}')
+            return True
 
         except Exception as e:
             logger.error(f'revert detail failed:{e}')
-            return
+            return False
 
     def search(self, start, end, detail=False):
         dates = get_date_range(start, end)
@@ -362,7 +363,9 @@ class MainWindow(QWidget):
             self.__num_edit.clear()
             self.__to_edit.clear()
         elif text == "cancel":
-            self.revert_detail_data()
+            if not self.revert_detail_data():
+                self.show_warning_dialog(f'没有可撤销数据!')
+                return
             self.update_total_data()
 
         elif text == "add":
