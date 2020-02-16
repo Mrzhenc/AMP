@@ -92,6 +92,15 @@ class LoginWindow(QWidget):
         self.hide()
         m.run()
 
+    def keyPressEvent(self, QKeyEvent):
+        """
+        捕获键盘输入，并执行相关动作
+        :param QKeyEvent:
+        :return:
+        """
+        if QKeyEvent.key() == Qt.Key_Return or QKeyEvent.key() == Qt.Key_Enter:
+            self.login_cb()
+
     def closeEvent(self, event):
         """
         重写closeEvent方法，实现dialog窗体关闭时执行一些代码
