@@ -1,7 +1,8 @@
 @echo off
 
 set dir=bin
-set install_dir="..\amp"
+set cur_dir=%cd%
+set install_dir="%cur_dir%\amp"
 
 if not exist %install_dir% (
     md %install_dir%
@@ -13,8 +14,9 @@ if not exist %dir% (
     rd /s /q %dir% && md %dir%
 )
 
-cd %dir%
+robocopy .\icon %install_dir%\icon /E /MT:8 
 
+cd %dir%
 copy ..\fav.ico .\
 copy ..\*.py .\
 

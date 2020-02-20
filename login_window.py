@@ -11,6 +11,7 @@ date: 2020/02/09
 import sys
 import PyQt5
 from utils import *
+from PyQt5 import QtGui
 from main_window import MainWindow
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLabel, QHBoxLayout, QVBoxLayout, QMessageBox
 from PyQt5.QtCore import Qt
@@ -26,9 +27,16 @@ class LoginWindow(QWidget):
         self.__db = DataBase()
         self.init_ui()
 
+    def paintEvent(self, QPaintEvent):
+        painter = QPaintEvent
+
     def init_ui(self):
         self.resize(400, 260)
         self.setWindowTitle(title)
+
+        window_bg = QtGui.QPalette()
+        window_bg.setBrush(self.backgroundRole(), QtGui.QBrush(QtGui.QPixmap('.\\icon\\login_bg.jpg')))
+        self.setPalette(window_bg)
 
         ok_btn = QPushButton('登录', self)
         ok_btn.clicked.connect(self.login_cb)

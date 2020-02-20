@@ -9,10 +9,12 @@ import json
 import copy
 import inspect
 from utils import *
+from PyQt5 import QtGui
+from PyQt5.QtGui import QIcon
 from collections import namedtuple
 from PyQt5.QtCore import Qt, QDate
 from PyQt5.QtWidgets import QWidget, QPushButton, QLabel, QHBoxLayout, QVBoxLayout, QFrame, QSplitter, \
-    QLineEdit, QComboBox, QTextEdit, QMessageBox, QDateTimeEdit, QDialog
+    QLineEdit, QComboBox, QTextEdit, QMessageBox, QDateTimeEdit, QDialog, QAction
 
 
 class MainWindow(QWidget):
@@ -52,6 +54,10 @@ class MainWindow(QWidget):
     def init_ui(self):
         self.resize(800, 600)
         self.setWindowTitle(title)
+
+        window_bg = QtGui.QPalette()
+        window_bg.setBrush(self.backgroundRole(), QtGui.QBrush(QtGui.QPixmap('.\\icon\\main_window.jpg')))
+        self.setPalette(window_bg)
 
         # top left widget
         v_box = QVBoxLayout(self)
