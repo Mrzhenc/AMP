@@ -278,7 +278,7 @@ class MainWindow(QWidget):
             """
             reply = QMessageBox.question(self, title, content.strip(), QMessageBox.Yes | QMessageBox.No)
             if reply == QMessageBox.No:
-                return
+                return True
             res = self.__db.query(WAREHOUSE_TB, NAME=detail_info.name)
             warehouse_info = MainWindow._warehouse_template._make(res[0])
             current_quantity = int(warehouse_info.quantity)
