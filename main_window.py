@@ -223,10 +223,10 @@ class MainWindow(QWidget):
             _type_list.append(f'{warehouse_info.name}:{warehouse_info.quantity}')
 
         self.__total_text_edit.setText('当前仓库物料清单:\n'+'\n'.join(_type_list))
-        cursor = self.__total_text_edit.textCursor()
-        pos = len(self.__total_text_edit.toPlainText())
-        cursor.setPosition(pos-1)
-        self.__total_text_edit.setTextCursor(cursor)
+        # cursor = self.__total_text_edit.textCursor()
+        #         # pos = len(self.__total_text_edit.toPlainText())
+        #         # cursor.setPosition(pos-1)
+        #         # self.__total_text_edit.setTextCursor(cursor)
 
     def run(self):
         self.show()
@@ -241,6 +241,9 @@ class MainWindow(QWidget):
         # update warehouse db
         res = self.__db.query(WAREHOUSE_TB, NAME=typo)
         if not res:
+            if method == '出货':
+                self.show_warning_dialog(f'{typo}出货失败:库存不足')
+                return
             self.__db.insert_warehouse(typo, num)
         else:
             try:
